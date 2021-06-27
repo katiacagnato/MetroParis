@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 import com.javadocmd.simplelatlng.LatLng;
@@ -85,7 +86,7 @@ public class MetroDAO {
 			
 			ResultSet rs = st.executeQuery() ;
 			
-			rs.first();
+			rs.first(); //la query mi da una sola riga come risultato, basta first (la riga ha il numero di collegamenti)
 			
 			int conteggio = rs.getInt("cnt") ;
 						
@@ -94,49 +95,60 @@ public class MetroDAO {
 			return (conteggio>0) ;
 			
 		} catch (SQLException e) {
-			throw new RuntimeException("Errore query", e);
+			throw new RuntimeException("Errore query", e); //riporto anche l'eccezione e!
 		}
 	}
 	
 	public List<Connessione> getAllConnessioni(List<Fermata> fermate) {
-		String sql = "SELECT  id_connessione, id_linea, id_stazP, id_stazA "
-				+ "FROM connessione "
-				+ "WHERE id_stazP>id_stazA" ;
+		//CREO UN METODO CHE MI RESTITUISCE GLI ELEMENTI CHE POSSO DIRETTAMENTE TRASFORMARE IN ARCHI
+	String sql= "	SELECT id_connessione, id_linea, id_stazP, id_stazA "
+			+ "FROM connessione  "
+			+ "WHERE id_stazP<id_stazA";
+	try {
+		Connection conn =DBConnect.getConnection();
 		
-		try {
-			Connection conn = DBConnect.getConnection() ;
+		PreparedStatement st= conn.prepareStatement(sql);
+		ResultSet rs= st.executeQuery();
+		
+		List<Connessione> result = new ArrayList<>();
+		
+	//ho piu righe come soluzione della query, non posso mettere first come sopra, metto un while
+		while(rs.next()) {
 			
-			PreparedStatement st = conn.prepareStatement(sql) ;
-			
-			ResultSet rs = st.executeQuery() ;
-			
-			List<Connessione> result = new ArrayList<Connessione>();
-			while(rs.next()) {
-				
-				int id_partenza = rs.getInt("id_stazP") ;
-				Fermata fermata_partenza = null ;
-				for(Fermata f: fermate) 
-					if(f.getIdFermata()==id_partenza)
-						fermata_partenza = f ;
-				
-				int id_arrivo= rs.getInt("id_stazA") ;
-				Fermata fermata_arrivo = null ;
-				for(Fermata f: fermate) 
-					if(f.getIdFermata()==id_arrivo)
-						fermata_arrivo = f ;
-
-				Connessione c = new Connessione(rs.getInt("id_connessione"),
-						null, // ingnoro la linea, adesso non ci serve
-						fermata_partenza,
-						fermata_arrivo) ;
-				result.add(c);
+			int id_partenza= rs.getInt("id_stazP");
+			Fermata fermata_partenza=null;
+			for(Fermata f: fermate) {
+				if(f.getIdFermata()==id_partenza)
+					fermata_partenza= f;
+			}
+			int id_arrivo= rs.getInt("id_stazA");
+			Fermata fermata_arrivo=null;
+			for(Fermata f: fermate) {
+				if(f.getIdFermata()==id_arrivo)
+					fermata_arrivo= f;
 			}
 			
-			conn.close() ;
-			return result ;
-		} catch (SQLException e) {
-			throw new RuntimeException("Errore DB", e) ;
+			Connessione c= new Connessione (rs.getInt("id_connessione"), 
+					//gli altri campi li vuole sotto forma di oggetto linea e oggetto fermata non come stringhe!
+					null,
+					fermata_partenza,
+					fermata_arrivo);
+			result.add(c);
+			
 		}
+		return result;
+	} catch(SQLException e) {
+		throw new RuntimeException("Errore DB", e);
+	}
+	
 	}
 
+	
 }
+
+
+
+
+
+
+
